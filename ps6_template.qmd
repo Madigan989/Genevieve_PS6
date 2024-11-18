@@ -69,10 +69,14 @@ print_file_contents("./top_alerts_map_byhour/app.py") # Change accordingly
 # Import required packages.
 import pandas as pd
 import altair as alt 
+alt.renderers.enable("mimetype")
 import pandas as pd
 from datetime import date
 import numpy as np
 alt.data_transformers.disable_max_rows() 
+
+import zipfile
+import os
 
 import json
 ```
@@ -85,24 +89,208 @@ import json
 
 ```{python}
 
+
+# Define the path to the zip file and the target directory
+zip_file_path = r"C:\Users\madig\Documents\Github\Year 2024-2025\Genevieve_PS6\waze_data.zip"
+extract_to_path = r"C:\Users\madig\Documents\Github\Year 2024-2025\Genevieve_PS6"
+
+# Unzip the file
+with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+    zip_ref.extractall(extract_to_path)
+
+print("Unzipping completed.")
+
 ```
+
+```{python}
+
+
+# Load the sample data directly without specifying the full path
+waze_sample = pd.read_csv("waze_data_sample.csv")
+
+# Display variable names and data types
+print("Variable Names and Data Types:")
+print(waze_sample.dtypes)
+
+print("\nSample Data:")
+print(waze_sample.head())
+
+```
+
+Connected to base (Python 3.11.7)
+
+Unzipping completed.
+Variable Names and Data Types:
+Unnamed: 0        int64
+city             object
+confidence        int64
+nThumbsUp       float64
+street           object
+uuid             object
+country          object
+type             object
+subtype          object
+roadType          int64
+reliability       int64
+magvar            int64
+reportRating      int64
+ts               object
+geo              object
+geoWKT           object
+dtype: object
+
+
 
 2. 
 
 ```{python}
 
+
+# Load the full dataset using just the file name
+waze_data_full = pd.read_csv("waze_data.csv")
+
+# Calculate null and non-null counts
+null_counts_full = waze_data_full.isnull().sum()
+non_null_counts_full = waze_data_full.notnull().sum()
+
+# Prepare data for visualization
+stacked_data_full = pd.DataFrame({
+    "Variable": waze_data_full.columns,
+    "Missing": null_counts_full.values,
+    "Not Missing": non_null_counts_full.values
+}).melt(id_vars=["Variable"], var_name="Category", value_name="Count")
+
+# Create the stacked bar chart
+chart_full = alt.Chart(stacked_data_full).mark_bar().encode(
+    x=alt.X("Variable:N", title="Variable Names"),
+    y=alt.Y("Count:Q", title="Count of Observations"),
+    color=alt.Color("Category:N", title="Category", scale=alt.Scale(domain=["Missing", "Not Missing"], range=["red", "green"]))
+).properties(
+    title="Stacked Bar Chart of Missing and Non-Missing Values (Full Data)",
+    width=800,
+    height=400
+)
+
+# Display the chart
+chart_full
+
 ```
 
+nThumbUp seems to have the highest null
+
+Street and subtype also have null
 3. 
 
 ```{python}
 
+# Reload the full dataset
+waze_data_full = pd.read_csv("waze_data.csv")
+
+# Unique values for 'type' and 'subtype'
+unique_types = waze_data_full['type'].unique()
+unique_subtypes = waze_data_full['subtype'].unique()
+
+# Count how many 'subtype' values are NA for each 'type'
+types_with_na_subtypes = waze_data_full[waze_data_full['subtype'].isna()]['type'].unique()
+na_subtype_counts = waze_data_full['subtype'].isna().sum()
+
+# Display unique combinations of type and subtype
+type_subtype_combinations = waze_data_full[['type', 'subtype']].drop_duplicates()
+
+# Summarize potential hierarchy for readable names
+type_hierarchy = type_subtype_combinations.groupby('type')['subtype'].apply(list).to_dict()
+
+# Print results
+print("Unique Types:")
+print(unique_types)
+print("\nUnique Subtypes:")
+print(unique_subtypes)
+print("\nTypes with NA subtypes:")
+print(types_with_na_subtypes)
+print(f"\nNumber of observations where 'subtype' is NA: {na_subtype_counts}")
+print("\nUnique combinations of 'type' and 'subtype':")
+print(type_subtype_combinations)
+
+# Display potential hierarchy
+type_hierarchy
+
 ```
+
+Unique Types:
+['JAM' 'ACCIDENT' 'ROAD_CLOSED' 'HAZARD']
+
+Unique Subtypes:
+[nan 'ACCIDENT_MAJOR' 'ACCIDENT_MINOR' 'HAZARD_ON_ROAD'
+ 'HAZARD_ON_ROAD_CAR_STOPPED' 'HAZARD_ON_ROAD_CONSTRUCTION'
+ 'HAZARD_ON_ROAD_EMERGENCY_VEHICLE' 'HAZARD_ON_ROAD_ICE'
+ 'HAZARD_ON_ROAD_OBJECT' 'HAZARD_ON_ROAD_POT_HOLE'
+ 'HAZARD_ON_ROAD_TRAFFIC_LIGHT_FAULT' 'HAZARD_ON_SHOULDER'
+ 'HAZARD_ON_SHOULDER_CAR_STOPPED' 'HAZARD_WEATHER' 'HAZARD_WEATHER_FLOOD'
+ 'JAM_HEAVY_TRAFFIC' 'JAM_MODERATE_TRAFFIC' 'JAM_STAND_STILL_TRAFFIC'
+ 'ROAD_CLOSED_EVENT' 'HAZARD_ON_ROAD_LANE_CLOSED' 'HAZARD_WEATHER_FOG'
+ 'ROAD_CLOSED_CONSTRUCTION' 'HAZARD_ON_ROAD_ROAD_KILL'
+ 'HAZARD_ON_SHOULDER_ANIMALS' 'HAZARD_ON_SHOULDER_MISSING_SIGN'
+ 'JAM_LIGHT_TRAFFIC' 'HAZARD_WEATHER_HEAVY_SNOW' 'ROAD_CLOSED_HAZARD'
+ 'HAZARD_WEATHER_HAIL']
+
+Types with NA subtypes:
+['JAM' 'ACCIDENT' 'ROAD_CLOSED' 'HAZARD']
+
+Number of observations where 'subtype' is NA: 96086
+
+Unique combinations of 'type' and 'subtype':
+               type                             subtype
+0               JAM                                 NaN
+...
+38546           JAM                   JAM_LIGHT_TRAFFIC
+44216        HAZARD           HAZARD_WEATHER_HEAVY_SNOW
+54556   ROAD_CLOSED                  ROAD_CLOSED_HAZARD
+229005       HAZARD                 HAZARD_WEATHER_HAIL
+
+List with hierarchy
+
+{'ACCIDENT': [nan, 'ACCIDENT_MAJOR', 'ACCIDENT_MINOR'],
+ 'HAZARD': [nan,
+  'HAZARD_ON_ROAD',
+  'HAZARD_ON_ROAD_CAR_STOPPED',
+  'HAZARD_ON_ROAD_CONSTRUCTION',
+  'HAZARD_ON_ROAD_EMERGENCY_VEHICLE',
+  'HAZARD_ON_ROAD_ICE',
+  'HAZARD_ON_ROAD_OBJECT',
+  'HAZARD_ON_ROAD_POT_HOLE',
+  'HAZARD_ON_ROAD_TRAFFIC_LIGHT_FAULT',
+  'HAZARD_ON_SHOULDER',
+  'HAZARD_ON_SHOULDER_CAR_STOPPED',
+  'HAZARD_WEATHER',
+  'HAZARD_WEATHER_FLOOD',
+  'HAZARD_ON_ROAD_LANE_CLOSED',
+  'HAZARD_WEATHER_FOG',
+  'HAZARD_ON_ROAD_ROAD_KILL',
+  'HAZARD_ON_SHOULDER_ANIMALS',
+  'HAZARD_ON_SHOULDER_MISSING_SIGN',
+  'HAZARD_WEATHER_HEAVY_SNOW',
+  'HAZARD_WEATHER_HAIL'],
+ 'JAM': [nan,
+  'JAM_HEAVY_TRAFFIC',
+  'JAM_MODERATE_TRAFFIC',
+  'JAM_STAND_STILL_TRAFFIC',
+  'JAM_LIGHT_TRAFFIC'],
+ 'ROAD_CLOSED': [nan,
+  'ROAD_CLOSED_EVENT',
+  'ROAD_CLOSED_CONSTRUCTION',
+  'ROAD_CLOSED_HAZARD']}
+
 
 4. 
 
+```{python}
+
+
+```
+
 1. 
 ```{python}
+
 
 ```
 
